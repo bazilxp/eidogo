@@ -1489,17 +1489,21 @@ _39[_3e[i]]="";
 });
 for(var key in _39){
 var pt=this.sgfCoordToPoint(key);
+if(pt.x!=null){
 if(l==null||pt.x<l){
 l=pt.x;
 }
 if(r==null||pt.x>r){
 r=pt.x;
 }
+}
+if(pt.y!=null){
 if(t==null||pt.y<t){
 t=pt.y;
 }
 if(b==null||pt.y>b){
 b=pt.y;
+}
 }
 }
 this.cropParams.width=r-l+1;
@@ -1519,12 +1523,12 @@ if(_43){
 this.cropParams.height+=_43;
 this.cropParams.top-=_43;
 }
-for(var _44=pad;r+_44>_35;_44--){
+for(var _44=pad;r+_44>_35-1;_44--){
 }
 if(_44){
 this.cropParams.width+=_44;
 }
-for(var _45=pad;b+_45>_35;_45--){
+for(var _45=pad;b+_45>_35-1;_45--){
 }
 if(_45){
 this.cropParams.height+=_45;
@@ -2221,7 +2225,7 @@ this.dom.searchContainer.scrollTop=0;
 if(_df>_e1){
 setTimeout(function(){
 _4(_2("search-more"),"click",function(e){
-this.loadSearch(_d7,_d0[2]+"x"+_d0[3],_d2,"corner",ret.offset+51);
+this.loadSearch(_d7,_d0[2]+"x"+_d0[3],_d2,"corner",ret.offset+50);
 _7(e);
 }.bind(this));
 }.bind(this),0);
@@ -2751,7 +2755,7 @@ return;
 location.href=this.downloadUrl+this.gameName;
 }else{
 if(_c){
-location.href="data:text/plain,"+encodeURIComponent(this.cursor.getGameRoot().toSgf());
+location.href="data:application/x-go-sgf,"+encodeURIComponent(this.cursor.getGameRoot().toSgf());
 }
 }
 },save:function(evt){
