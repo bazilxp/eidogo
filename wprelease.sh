@@ -2,6 +2,9 @@
 
 DEST="../eidogo"
 
+cd player
+./compress.sh
+cd ..
 mkdir -p $DEST/sgf
 cp -r player $DEST
 # find $DEST -name .svn | xargs rm -rf
