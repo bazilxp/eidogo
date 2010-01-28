@@ -1203,7 +1203,7 @@ if(!this.dom.container){
 alert(t["dom error"]);
 return;
 }
-this.uniq=(new Date()).getTime();
+this.uniq=(new Date()).getTime()+Math.floor(Math.random()*1000000);
 eidogo.players[this.uniq]=this;
 this.sgfPath=cfg.sgfPath;
 this.searchUrl=cfg.searchUrl;
