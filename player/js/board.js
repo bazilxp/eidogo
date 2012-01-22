@@ -182,15 +182,15 @@ eidogo.BoardRendererHtml.prototype = {
      * @constructor
      * @param {HTMLElement} domContainer Where to put the board
      */
-    init: function(domContainer, boardSize, player, crop) {
+    init: function(domContainer, boardSize, eventHandlers, crop, uniq) {
         if (!domContainer) {
             throw "No DOM container";
             return;
         }
+        
         this.boardSize = boardSize || 19;
         var domGutter = document.createElement('div');
-        domGutter.className = "board-gutter" + (this.boardSize == 19 ?
-                " with-coords" : "");
+        domGutter.className = "board-gutter" + (this.boardSize == 19 ? " with-coords" : "");
         domContainer.appendChild(domGutter);
         var domBoard = document.createElement('div');
         domBoard.className = "board size" + this.boardSize;
@@ -199,7 +199,7 @@ eidogo.BoardRendererHtml.prototype = {
         this.domNode = domBoard;
         this.domGutter = domGutter;
         this.domContainer = domContainer;
-        this.player = player;
+        this.eventHandlers = eventHandlers;
         this.uniq = domContainer.id + "-";
         this.renderCache = {
             stones: [].setLength(this.boardSize, 0).addDimension(this.boardSize, 0),
@@ -329,15 +329,15 @@ eidogo.BoardRendererHtml.prototype = {
     },
     handleHover: function(e) {
         var xy = this.getXY(e);
-        this.player.handleBoardHover(xy[0], xy[1], xy[2], xy[3], e);
+        this.eventHandlers.handleHover(xy[0], xy[1], e);
     },
     handleMouseDown: function(e) {
         var xy = this.getXY(e);
-        this.player.handleBoardMouseDown(xy[0], xy[1], xy[2], xy[3], e);
+        this.eventHandlers.handleMouseDown(xy[0], xy[1], e);
     },
     handleMouseUp: function(e) {
         var xy = this.getXY(e);
-        this.player.handleBoardMouseUp(xy[0], xy[1]);
+        this.eventHandlers.handleMouseUp(xy[0], xy[1]);
     },
     /**
      *  Gets the board coordinates (0-18) for a mouse event
@@ -345,12 +345,8 @@ eidogo.BoardRendererHtml.prototype = {
     getXY: function(e) {
         var clickXY = eidogo.util.getElClickXY(e, this.domNode);
         
-        var m = this.margin;
-        var pw = this.pointWidth;
-        var ph = this.pointHeight;
-        
-        var x = Math.round((clickXY[0] - m - (pw / 2)) / pw);
-        var y = Math.round((clickXY[1] - m - (ph / 2)) / ph);
+        var x = Math.round((clickXY[0] - this.margin - (this.pointWidth / 2)) / this.pointWidth);
+        var y = Math.round((clickXY[1] - this.margin - (this.pointHeight / 2)) / this.pointHeight);
     
         return [x, y, clickXY[0], clickXY[1]];
     },
@@ -361,7 +357,9 @@ eidogo.BoardRendererHtml.prototype = {
         var height = crop.height * this.pointHeight + (this.margin * 2);
         this.domGutter.style.width = width + "px";
         this.domGutter.style.height = height + "px";
-        this.player.dom.player.style.width = width + "px";
+        
+        this.eventHandlers.handleBoardSizeChange(width);
+        
         this.domGutter.scrollLeft = crop.left * this.pointWidth;
         this.domGutter.scrollTop = crop.top * this.pointHeight;
     }
@@ -378,7 +376,7 @@ eidogo.BoardRendererFlash.prototype = {
      * @constructor
      * @param {HTMLElement} domContainer Where to put the board
      */
-    init: function(domContainer, boardSize, player, crop) {
+    init: function(domContainer, boardSize, eventHandlers, crop, uniq) {
         if (!domContainer) {
             throw "No DOM container";
             return;
@@ -404,7 +402,7 @@ eidogo.BoardRendererFlash.prototype = {
                 return;
             }
             this.swf = swf;
-            this.swf.init(player.uniq, boardSize);
+            this.swf.init(uniq, boardSize);
             this.ready = true;
         }.bind(this);
         initBoard();

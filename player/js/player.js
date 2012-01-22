@@ -270,8 +270,6 @@ eidogo.Player.prototype = {
         this.mouseDown = null;
         this.mouseDownX = null;
         this.mouseDownY = null;
-        this.mouseDownClickX = null;
-        this.mouseDownClickY = null;
         
         // for the letter and number tools
         this.labelLastLetter = null;
@@ -585,6 +583,17 @@ eidogo.Player.prototype = {
     },
 
     /**
+     * Create an event handler with the execution context ("this") set to be the player function.
+    **/
+    getEventHandler: function(handler) {
+        return (function(that) {
+            return function() {
+                return handler.apply(that, arguments);
+            };
+        })(this);
+    },
+
+    /**
      * Create our board. This can be called multiple times.
     **/
     createBoard: function(size) {
@@ -600,8 +609,15 @@ eidogo.Player.prototype = {
                 this.renderer == "flash"
                     ? eidogo.BoardRendererFlash
                     : eidogo.BoardRendererHtml;
-
-            var renderer = new rendererProto(this.dom.boardContainer, size, this, this.cropParams);
+            
+            var eventHandlers = {
+                handleMouseDown: this.getEventHandler(this.handleBoardMouseDown),
+                handleHover: this.getEventHandler(this.handleBoardHover),
+                handleMouseUp: this.getEventHandler(this.handleBoardMouseUp),
+                handleBoardSizeChange: this.getEventHandler(this.handleBoardSizeChange)
+            };
+            
+            var renderer = new rendererProto(this.dom.boardContainer, size, eventHandlers, this.cropParams, this.uniq);
             this.board = new eidogo.Board(renderer, size);
         } catch (e) {
             if (e == "No DOM container") {
@@ -1157,6 +1173,14 @@ eidogo.Player.prototype = {
     },
 
     /**
+     * Changes the size of the board part. Takes width in pixels as parameter.
+    **/    
+    handleBoardSizeChange: function(width) {
+        this.dom.player.style.width = width + "px";
+    },
+    
+    
+    /**
      * Handle a mouse-down event on a particular point. This function gets
      * called by the board renderer, which handles the actual browser event
      * attachment (or Flash event handling, or whatever) and passes along
@@ -1174,8 +1198,6 @@ eidogo.Player.prototype = {
         this.mouseDown = true;
         this.mouseDownX = x;
         this.mouseDownY = y;
-        this.mouseDownClickX = cx;
-        this.mouseDownClickY = cy;
         // begin region selection
         if (this.mode == "region" && x >= 0 && y >= 0 && !this.regionBegun) {
             this.regionTop = y;
@@ -1198,9 +1220,8 @@ eidogo.Player.prototype = {
             }
             
             var boardDiff = (x != this.mouseDownX || y != this.mouseDownY);
-            var clickDiff = Math.abs(this.mouseDownClickX-cx) >= 19 ||
-                Math.abs(this.mouseDownClickY-cy) >= 19;
-            if (this.searchUrl && !this.regionBegun && boardDiff && clickDiff) {
+            
+            if (this.searchUrl && !this.regionBegun && boardDiff ) {
                 // click and drag: implicit region select
                 this.selectTool("region");
                 this.regionBegun = true;
