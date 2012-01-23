@@ -504,3 +504,266 @@ eidogo.BoardRendererAscii.prototype = {
         // I don't think this is possible
     }
 }
+
+
+
+/**
+ * --------------------------------------
+ * @class An Canvas based board renderer.
+ * -------------------------------------
+ */
+eidogo.BoardRendererCanvas = function() {
+    this.init.apply(this, arguments);
+}
+eidogo.BoardRendererCanvas.prototype = {
+    /**
+     * @constructor
+     * @param {HTMLElement} domContainer Where to put the board
+     */
+    init: function(domContainer, boardSize, player, crop) {
+        
+        this.boardSize = boardSize || 19;
+        
+	  ///xxx
+        
+        var sz=this.boardSize;
+		var w=500;
+		var h=500;
+		var border=17;
+
+		var canvas = document.getElementById('player');  
+		this.ctx = canvas.getContext('2d');     
+		this.stepx=Math.floor((w-border*2)/sz);
+		this.stepy=Math.floor((h-border*2)/sz);  
+
+
+        this.DrawGrid(this.ctx,this.stepx,this.stepy,border);        
+        
+        
+        if (!domContainer) {
+            throw "No DOM container";
+            return;
+        }
+        var domGutter = document.createElement('div');
+        domGutter.className = "board-gutter" + (this.boardSize == 19 ?
+                " with-coords" : "");
+        domContainer.appendChild(domGutter);
+        var domBoard = document.createElement('div');
+        domBoard.className = "board size" + this.boardSize;
+        domBoard.style.position = (crop && eidogo.browser.ie ? "static" : "relative");
+        domGutter.appendChild(domBoard);
+        this.domNode = domBoard;
+        this.domGutter = domGutter;
+        this.domContainer = domContainer;
+        this.player = player;
+        this.uniq = domContainer.id + "-";
+        this.renderCache = {
+            stones: [].setLength(this.boardSize, 0).addDimension(this.boardSize, 0),
+            markers: [].setLength(this.boardSize, 0).addDimension(this.boardSize, 0)
+        }
+        // auto-detect point width, point height, and margin
+        this.pointWidth = 0;
+        this.pointHeight = 0;
+        this.margin = 0;
+        var stone = this.renderStone({x:0,y:0}, "black");
+        this.pointWidth = this.pointHeight = stone.offsetWidth;
+        this.renderStone({x:0,y:0}, "white"); // just for image caching
+        this.renderMarker({x:0,y:0}, "current"); // just for image caching
+        this.clear();
+        this.margin = (this.domNode.offsetWidth - (this.boardSize * this.pointWidth)) / 2;
+        
+        // needed to accommodate IE's broken layout engine
+        this.scrollX = 0;
+        this.scrollY = 0;
+        
+        if (crop) {
+            this.crop(crop);
+            if (eidogo.browser.ie) {
+                var parent = this.domNode.parentNode;
+                while (parent && parent.tagName && !/^body|html$/i.test(parent.tagName)) {
+                    this.scrollX += parent.scrollLeft;
+                    this.scrollY += parent.scrollTop;
+                    parent = parent.parentNode;
+                }
+            }
+        }
+        
+        // add the search region selection box for later use
+        this.dom = {};
+        this.dom.searchRegion = document.createElement('div');
+        this.dom.searchRegion.id = this.uniq + "search-region";
+        this.dom.searchRegion.className = "search-region";
+        this.domNode.appendChild(this.dom.searchRegion);
+        
+        eidogo.util.addEvent(this.domNode, "mousemove", this.handleHover, this, true);
+        eidogo.util.addEvent(this.domNode, "mousedown", this.handleMouseDown, this, true);
+        eidogo.util.addEvent(this.domNode, "mouseup", this.handleMouseUp, this, true);
+    },
+    showRegion: function(bounds) {
+        this.dom.searchRegion.style.top = (this.margin + this.pointHeight * bounds[0]) + "px";
+        this.dom.searchRegion.style.left = (this.margin + this.pointWidth * bounds[1]) + "px";
+        this.dom.searchRegion.style.width = this.pointWidth * bounds[2] + "px";
+        this.dom.searchRegion.style.height = this.pointHeight * bounds[3] + "px";
+        eidogo.util.show(this.dom.searchRegion);
+    },
+    hideRegion: function() {
+        eidogo.util.hide(this.dom.searchRegion);  
+    },
+    clear: function() {
+        this.domNode.innerHTML = "";
+    },
+    renderStone: function(pt, color) {
+        var stone = document.getElementById(this.uniq + "stone-" + pt.x + "-" + pt.y);
+        if (stone) {
+            stone.parentNode.removeChild(stone);
+        }
+        if (color != "empty") {
+            var div = document.createElement("div");
+            div.id = this.uniq + "stone-" + pt.x + "-" + pt.y;
+            div.className = "point stone " + color;
+            try {
+                div.style.left = (pt.x * this.pointWidth + this.margin - this.scrollX) + "px";
+                div.style.top = (pt.y * this.pointHeight + this.margin - this.scrollY) + "px";
+            } catch (e) {}
+            this.domNode.appendChild(div);
+            return div;
+        }
+        return null;
+    },
+    renderMarker: function(pt, type) {
+        if (this.renderCache.markers[pt.x][pt.y]) {
+            var marker = document.getElementById(this.uniq + "marker-" + pt.x + "-" + pt.y);
+            if (marker) {
+                marker.parentNode.removeChild(marker);
+            }
+        }
+        if (type == "empty" || !type) { 
+            this.renderCache.markers[pt.x][pt.y] = 0;
+            return null;
+        }
+        this.renderCache.markers[pt.x][pt.y] = 1;
+        if (type) {
+            var text = "";
+            switch (type) {
+                case "triangle":
+                case "square":
+                case "circle":
+                case "ex":
+                case "territory-white":
+                case "territory-black":
+                case "dim":
+                case "current":
+                    break;
+                default:
+                    if (type.indexOf("var:") == 0) {
+                        text = type.substring(4);
+                        type = "variation";
+                    } else {
+                        text = type;
+                        type = "label";
+                    }
+                    break;
+            }
+            var div = document.createElement("div");
+            div.id = this.uniq + "marker-" + pt.x + "-" + pt.y;
+            div.className = "point marker " + type;
+            try {
+                div.style.left = (pt.x * this.pointWidth + this.margin - this.scrollX) + "px";
+                div.style.top = (pt.y * this.pointHeight + this.margin - this.scrollY) + "px";
+            } catch (e) {}
+            div.appendChild(document.createTextNode(text));
+            this.domNode.appendChild(div);
+            return div;
+        }
+        return null;
+    },
+    setCursor: function(cursor) {
+        this.domNode.style.cursor = cursor;
+    },
+    handleHover: function(e) {
+        var xy = this.getXY(e);
+        this.player.handleBoardHover(xy[0], xy[1], xy[2], xy[3], e);
+    },
+    handleMouseDown: function(e) {
+        var xy = this.getXY(e);
+        this.player.handleBoardMouseDown(xy[0], xy[1], xy[2], xy[3], e);
+    },
+    handleMouseUp: function(e) {
+        var xy = this.getXY(e);
+        this.player.handleBoardMouseUp(xy[0], xy[1]);
+    },
+    /**
+     *  Gets the board coordinates (0-18) for a mouse event
+    **/
+    getXY: function(e) {
+        var clickXY = eidogo.util.getElClickXY(e, this.domNode);
+        
+        var m = this.margin;
+        var pw = this.pointWidth;
+        var ph = this.pointHeight;
+        
+        var x = Math.round((clickXY[0] - m - (pw / 2)) / pw);
+        var y = Math.round((clickXY[1] - m - (ph / 2)) / ph);
+    
+        return [x, y, clickXY[0], clickXY[1]];
+    },
+    crop: function(crop) {
+        eidogo.util.addClass(this.domContainer, "shrunk");
+        this.domGutter.style.overflow = "hidden";
+        var width = crop.width * this.pointWidth + (this.margin * 2);
+        var height = crop.height * this.pointHeight + (this.margin * 2);
+        this.domGutter.style.width = width + "px";
+        this.domGutter.style.height = height + "px";
+        this.player.dom.player.style.width = width + "px";
+        this.domGutter.scrollLeft = crop.left * this.pointWidth;
+        this.domGutter.scrollTop = crop.top * this.pointHeight;
+    },
+    DrawGrid: function (ctx,stepx,stepy,border)
+	{ 
+		
+	var	sz=this.boardSize;
+    
+    ctx.lineWidth=1;
+    ctx.strokeStyle = "rgb(0, 0, 0)";
+
+    for (x =0 ;x<sz;x++)
+    {
+      
+        ctx.moveTo(border+x*stepx,border+0);  
+        ctx.lineTo(border+x*stepx,border+sz*stepy-stepy);          
+      
+        ctx.moveTo(border+0,border+x*stepy);  
+        ctx.lineTo(border+sz*stepx-stepx,border+x*stepy);  
+      
+    }
+    ctx.stroke(); 
+   },
+   //ctx - context    x,y  - position    col -  color
+  DrawStone: function (ctx,x,y,col)
+  {
+    posx=border+x*stepx;
+    posy=border+y*stepy;   
+
+    var radgrad = ctx.createRadialGradient(posx,posy,2,posx,posy,stepx/2);  
+
+    // black gradient   
+    if (col==1) 
+    {   
+        radgrad.addColorStop(0, '#535353');  
+        radgrad.addColorStop(0.9, '#012310');  
+        radgrad.addColorStop(1, 'rgba(0,17,15,0)');  
+    }
+    else
+    {
+        radgrad.addColorStop(0, '#FFFFFF');  
+        radgrad.addColorStop(0.9, '#CCC');  
+        radgrad.addColorStop(0.95, 'rgba(15,15,15,0)');  		
+        radgrad.addColorStop(1, 'rgba(12,12,12,0)');  
+
+    }
+
+    // draw shapes  
+    ctx.fillStyle = radgrad;  
+    ctx.fillRect(0,0,w,h);   
+  }
+}

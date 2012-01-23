@@ -609,6 +609,9 @@ eidogo.Player.prototype = {
                 this.renderer == "flash"
                     ? eidogo.BoardRendererFlash
                     : eidogo.BoardRendererHtml;
+    
+         if (this.renderer == "canvas" ) rendererProto = eidogo.BoardRendererCanvas; 
+
             
             var eventHandlers = {
                 handleMouseDown: this.getEventHandler(this.handleBoardMouseDown),
